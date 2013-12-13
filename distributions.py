@@ -5,7 +5,7 @@ import abc
 import pybasicbayes
 from pybasicbayes.util.stats import sample_niw
 
-class _AnnealingMixin(object):
+class _AnnealingDistributionMixin(object):
     __metaclass__ = abc.ABCMeta
 
     @property
@@ -17,16 +17,16 @@ class _AnnealingMixin(object):
         self._temperature = T
 
     def log_likelihood(self,x):
-        return super(_AnnealingMixin,self).log_likelihood(x) / self.temperature
+        return super(_AnnealingDistributionMixin,self).log_likelihood(x) / self.temperature
 
     def annealing_energy(self,data):
         # NOTE: value is independent of temperature
         if isinstance(data,list):
             return self._log_prior_density_unnorm() + \
-                    sum(super(_AnnealingMixin,self).log_likelihood(d) for d in data)
+                    sum(super(_AnnealingDistributionMixin,self).log_likelihood(d) for d in data)
         else:
             return self._log_prior_density_unnorm() + \
-                    super(_AnnealingMixin,self).log_likelihood(data)
+                    super(_AnnealingDistributionMixin,self).log_likelihood(data)
 
     @abc.abstractmethod
     def _log_prior_density_unnorm(self):
@@ -36,7 +36,26 @@ class _AnnealingMixin(object):
     def resample(self,data=[]):
         pass
 
-class AnnealedGaussian(_AnnealingMixin,pybasicbayes.distributions.Gaussian):
+    @abc.abstractmethod
+    def swap_params_with(self,other):
+        pass
+
+class _DistributionToModelMixin(object):
+    def __init__(self,*args,**kwargs):
+        super(_DistributionToModelMixin,self).__init__(*args,**kwargs)
+        self.data = []
+
+    def add_data(self,data):
+        self.data.append(data)
+
+    def resample_model(self):
+        self.resample(data=self.data)
+
+    def annealing_energy(self):
+        return self.annealing_energy(self.data)
+
+
+class AnnealedGaussian(_AnnealingDistributionMixin,pybasicbayes.distributions.Gaussian):
     def _log_prior_density_unnorm(self):
         # NOTE: doesn't include (2pi)^(-D/2) in Normal part or any of the
         # normalizer in the InvWish part
@@ -56,4 +75,14 @@ class AnnealedGaussian(_AnnealingMixin,pybasicbayes.distributions.Gaussian):
         D = len(mu_n)
         return mu_n, sigma_n * self.temperature, kappa_n * self.temperature, \
                 (nu_n - D - 1)/self.temperature + D + 1 # NOTE: base measure correction
+
+    def swap_params_with(self,other):
+        mu, sigma, _signa_chol = self.mu, self.sigma, self._sigma_chol
+        self.mu, self.sigma, self._sigma_chol = other.mu, other.sigma, other._sigma_chol
+        other.mu, other.sigma, other._sigma_chol = mu, sigma, _sigma_chol
+
+### modelified distributions (mostly for testing)
+
+class AnnealedGaussianModel(_DistributionToModelMixin,AnnealedGaussian):
+    pass
 
