@@ -48,6 +48,10 @@ class _AnnealingDistributionMixin(object):
 ### distributions
 
 class AnnealedGaussian(_AnnealingDistributionMixin,pybasicbayes.distributions.Gaussian):
+    # NOTE: this class only anneals over the mean, since annealing an
+    # Inverse Wishart puts constraints on the temperature and probably isn't as
+    # important
+
     def _log_heated_density_unnorm(self):
         mu, sigma = self.mu, self.sigma
         return - 1./2 * (
