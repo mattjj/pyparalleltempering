@@ -25,7 +25,8 @@ class _AnnealingDistributionMixin(object):
         return super(_AnnealingDistributionMixin,self).log_likelihood(x) / self.temperature
 
     def annealing_energy(self,data):
-        # NOTE: value is independent of temperature
+        # NOTE: value is independent of temperature, since temperature is
+        # handled explicitly in the MH probability; this is just the E part
         if isinstance(data,list):
             return self._log_varied_density_unnorm() + \
                     sum(super(_AnnealingDistributionMixin,self).log_likelihood(d) for d in data)
@@ -35,10 +36,15 @@ class _AnnealingDistributionMixin(object):
 
     @abc.abstractmethod
     def _log_varied_density_unnorm(self):
+        # NOTE: only need the part of the density that is affected by the
+        # temperature; other parts just cancel in the MH ratio
         pass
 
     @abc.abstractmethod
     def resample(self,data=[]):
+        # NOTE: this resample method must sample from the heated distribution
+        # for exponential family, might just define a _raise_temperature method
+        # that transforms the parameters (like scaling the natural params)
         pass
 
     @abc.abstractmethod
@@ -64,11 +70,11 @@ class AnnealedGaussian(_AnnealingDistributionMixin,pybasicbayes.distributions.Ga
                     *self._posterior_hypparams(*self._get_statistics(data,D))))
         return self
 
-    def _raise_temperature(self,mu_n,sigma_n,kappa_n,nu_n):
-        return mu_n, sigma_n / self.temperature, kappa_n / self.temperature, nu_n
-
     def swap_sample_with(self,other):
         mu, sigma, _sigma_chol = self.mu, self.sigma, self._sigma_chol
         self.mu, self.sigma, self._sigma_chol = other.mu, other.sigma, other._sigma_chol
         other.mu, other.sigma, other._sigma_chol = mu, sigma, _sigma_chol
+
+    def _raise_temperature(self,mu_n,sigma_n,kappa_n,nu_n):
+        return mu_n, sigma_n / self.temperature, kappa_n / self.temperature, nu_n
 
