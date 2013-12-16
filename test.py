@@ -2,6 +2,8 @@ from __future__ import division
 import numpy as np
 from matplotlib import pyplot as plt
 
+from nose.plugins.attrib import attr
+
 from pybasicbayes.util import testing
 from pybasicbayes.distributions import Gaussian
 
@@ -25,32 +27,31 @@ class _DistributionToModelMixin(object):
 class AnnealedGaussianModel(_DistributionToModelMixin,AnnealedGaussian):
     pass
 
-# def test_gaussian():
-prior_data = 2*np.random.randn(5,2) + np.array([1.,3.])
-a = Gaussian().empirical_bayes(prior_data)
+@attr('slow','annealing','gaussian')
+def test_gaussian():
+    prior_data = 2*np.random.randn(5,2) + np.array([1.,3.])
+    a = Gaussian().empirical_bayes(prior_data)
 
-# data = a.rvs(10)
+    # data = a.rvs(10)
 
-gibbs_statistics = []
-for itr in range(20000):
-    a.resample()
-    # a.resample(data)
-    gibbs_statistics.append(a.mu)
-gibbs_statistics = np.array(gibbs_statistics)
+    gibbs_statistics = []
+    for itr in range(20000):
+        a.resample()
+        # a.resample(data)
+        gibbs_statistics.append(a.mu)
+    gibbs_statistics = np.array(gibbs_statistics)
 
-print 'done exact sampling'
+    b = AnnealedGaussianModel().empirical_bayes(prior_data)
+    # b.add_data(data)
 
-b = AnnealedGaussianModel().empirical_bayes(prior_data)
-# b.add_data(data)
+    pt = ParallelTempering(b,[5.])
+    pt_samples = pt.run(20000,1)
+    pt_statistics = np.array([m.mu for m in pt_samples])
 
-pt = ParallelTempering(b,[5.])
-pt_samples = pt.run(20000,1)
-pt_statistics = np.array([m.mu for m in pt_samples])
+    fig = plt.figure()
+    testing.populations_eq_quantile_plot(gibbs_statistics,pt_statistics,fig=fig)
+    plt.savefig('gaussian_test.png')
 
-print 'done ParallelTempering'
-
-fig = plt.figure()
-testing.populations_eq_quantile_plot(gibbs_statistics,pt_statistics,fig=fig)
-plt.savefig('gaussian_test.png')
-plt.show()
+    testing.assert_populations_eq_moments(gibbs_statistics,pt_statistics), \
+            'Annealing MAY have failed, check FIGURES'
 
