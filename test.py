@@ -25,31 +25,32 @@ class _DistributionToModelMixin(object):
 class AnnealedGaussianModel(_DistributionToModelMixin,AnnealedGaussian):
     pass
 
-def test_gaussian():
-    prior_data = np.random.randn(10,2)
-    a = Gaussian().empirical_bayes(prior_data)
+# def test_gaussian():
+prior_data = 2*np.random.randn(5,2) + np.array([1.,3.])
+a = Gaussian().empirical_bayes(prior_data)
 
-    # data = a.rvs(10)
+# data = a.rvs(10)
 
-    gibbs_statistics = []
-    for itr in range(5000):
-        a.resample()
-        # a.resample(data)
-        gibbs_statistics.append(a.mu)
-    gibbs_statistics = np.array(gibbs_statistics)
+gibbs_statistics = []
+for itr in range(20000):
+    a.resample()
+    # a.resample(data)
+    gibbs_statistics.append(a.mu)
+gibbs_statistics = np.array(gibbs_statistics)
 
-    print 'done exact sampling'
+print 'done exact sampling'
 
-    b = AnnealedGaussianModel().empirical_bayes(prior_data)
-    # b.add_data(data)
+b = AnnealedGaussianModel().empirical_bayes(prior_data)
+# b.add_data(data)
 
-    pt = ParallelTempering(b,[5.])
-    pt_samples = pt.run(5000,1)
-    pt_statistics = np.array([m.mu for m in pt_samples])
+pt = ParallelTempering(b,[5.])
+pt_samples = pt.run(20000,1)
+pt_statistics = np.array([m.mu for m in pt_samples])
 
-    print 'done ParallelTempering'
+print 'done ParallelTempering'
 
-    fig = plt.figure()
-    testing.populations_eq_quantile_plot(gibbs_statistics,pt_statistics,fig=fig)
-    plt.savefig('gaussian_test.png')
+fig = plt.figure()
+testing.populations_eq_quantile_plot(gibbs_statistics,pt_statistics,fig=fig)
+plt.savefig('gaussian_test.png')
+plt.show()
 

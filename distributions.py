@@ -27,14 +27,14 @@ class _AnnealingDistributionMixin(object):
     def annealing_energy(self,data):
         # NOTE: value is independent of temperature
         if isinstance(data,list):
-            return self._log_heated_density_unnorm() + \
+            return self._log_varied_density_unnorm() + \
                     sum(super(_AnnealingDistributionMixin,self).log_likelihood(d) for d in data)
         else:
-            return self._log_heated_density_unnorm() + \
+            return self._log_varied_density_unnorm() + \
                     super(_AnnealingDistributionMixin,self).log_likelihood(data)
 
     @abc.abstractmethod
-    def _log_heated_density_unnorm(self):
+    def _log_varied_density_unnorm(self):
         pass
 
     @abc.abstractmethod
@@ -48,15 +48,14 @@ class _AnnealingDistributionMixin(object):
 ### distributions
 
 class AnnealedGaussian(_AnnealingDistributionMixin,pybasicbayes.distributions.Gaussian):
-    # NOTE: this class only anneals over the mean, since annealing an
-    # Inverse Wishart puts constraints on the temperature and probably isn't as
-    # important
-
-    def _log_heated_density_unnorm(self):
+    def _log_varied_density_unnorm(self):
         mu, sigma = self.mu, self.sigma
-        return - 1./2 * (
-                    (mu - self.mu_0).dot(np.linalg.solve(sigma/self.kappa_0,mu - self.mu_0))
-                    - np.linalg.slogdet(sigma/self.kappa_0)[1])
+        invwish_part = -1./2 * (self.nu_0) * np.linalg.slogdet(sigma)[1] \
+                - 1./2 * np.linalg.solve(sigma,self.sigma_0).trace()
+        normal_part = - 1./2 * (
+                (mu - self.mu_0).dot(np.linalg.solve(sigma/self.kappa_0,mu - self.mu_0))
+                - np.linalg.slogdet(sigma/self.kappa_0)[1])
+        return invwish_part + normal_part
 
     def resample(self,data=[]):
         D = len(self.mu_0)
@@ -66,8 +65,7 @@ class AnnealedGaussian(_AnnealingDistributionMixin,pybasicbayes.distributions.Ga
         return self
 
     def _raise_temperature(self,mu_n,sigma_n,kappa_n,nu_n):
-        D = len(mu_n)
-        return mu_n, sigma_n, kappa_n / self.temperature, nu_n
+        return mu_n, sigma_n / self.temperature, kappa_n / self.temperature, nu_n
 
     def swap_sample_with(self,other):
         mu, sigma, _sigma_chol = self.mu, self.sigma, self._sigma_chol
